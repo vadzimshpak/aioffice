@@ -7,12 +7,19 @@ import { Modal } from "../../Modal";
 import { isDeleteShortcut } from "../../shortcuts";
 import type { Agent } from "../group/group";
 import { LogsButton } from "../logs/LogsButton";
+import { AgentStop } from "./AgentStop";
+import { AgentStatus } from "./AgentStatus";
+import { AgentUsageLabel } from "./AgentUsage";
 import { AssigneePicker } from "./AssigneePicker";
 import { commentAuthorName, type Card, type CardChange } from "./board";
 
 interface Props {
   /** Открытая карточка; без неё окно закрыто. */
   card: Card | undefined;
+  /** Путь доски от корня проекта: для запуска агента. */
+  boardPath: string;
+  /** Столбец, в котором сейчас карточка. */
+  stage: string | undefined;
   /** Агенты группы доски, из которых выбирают исполнителя. */
   agents: Agent[] | null;
   onChange: (change: CardChange) => void;
@@ -24,18 +31,18 @@ interface Props {
 }
 
 /** Окно карточки: слева название и описание, справа комментарии. */
-export function CardDialog({ card, agents, onChange, onComment, onDelete, onOpenLogs, onClose }: Props) {
+export function CardDialog({ card, boardPath, stage, agents, onChange, onComment, onDelete, onOpenLogs, onClose }: Props) {
   return (
     <Modal
       open={!!card}
       onClose={onClose}
       padded={false}
-      className="h-[min(560px,85vh)] w-[min(820px,90vw)]"
+      className="h-[min(600px,88vh)] w-[min(1040px,94vw)]"
       // Cmd+Backspace / Delete вне полей ввода удаляет открытую карточку.
       onKeyDown={(event) => isDeleteShortcut(event) && onDelete()}
     >
       {card && (
-        <div className="grid h-full grid-cols-[3fr_2fr]">
+        <div className="grid h-full grid-cols-[1fr_1fr]">
           <section className="flex min-h-0 flex-col gap-3 p-5">
             <input
               value={card.title}
@@ -44,6 +51,14 @@ export function CardDialog({ card, agents, onChange, onComment, onDelete, onOpen
               className={`${FIELD} text-lg font-semibold`}
             />
             <AssigneePicker agents={agents} assignee={card.assignee} onChange={(assignee) => onChange({ assignee })} />
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="flex shrink-0 items-center gap-1.5 text-[13px] text-muted">
+                Этап:
+                <span className="rounded-full border border-border bg-button px-2 py-0.5 text-xs text-text">{stage ?? "—"}</span>
+              </span>
+              <AgentStatus state={card.agentState} className="shrink-0" />
+              <AgentUsageLabel usage={card.agentUsage} className="shrink-0" />
+            </div>
             <textarea
               value={card.description}
               placeholder="Описание"
@@ -56,8 +71,9 @@ export function CardDialog({ card, agents, onChange, onComment, onDelete, onOpen
                   <FaRegTrashCan /> Удалить карточку
                 </span>
               </Button>
-              <div className="flex gap-2">
+              <div className="flex min-w-0 gap-2">
                 <LogsButton onClick={onOpenLogs} />
+                <AgentStop boardPath={boardPath} card={card} />
                 <Button className="h-9 px-4" onClick={onClose}>
                   Готово
                 </Button>

@@ -1,6 +1,8 @@
+mod agent;
 mod explorer;
 mod recent;
 mod settings;
+mod voice;
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -145,8 +147,11 @@ fn current_project(window: WebviewWindow, projects: State<'_, OpenProjects>) -> 
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(OpenProjects::default())
         .manage(explorer::Watchers::default())
+        .manage(voice::Voice::default())
+        .manage(agent::Agents::default())
         .setup(|app| {
             // С папкой в аргументах сразу открываем редактор, без приветствия.
             match project_from_args() {
@@ -168,7 +173,14 @@ pub fn run() {
             explorer::read_file,
             explorer::write_file,
             settings::load_settings,
-            settings::save_settings
+            settings::save_settings,
+            voice::voice_models,
+            voice::download_voice_model,
+            voice::start_recording,
+            voice::stop_recording,
+            agent::stop_agent,
+            agent::run_master,
+            agent::stop_master
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

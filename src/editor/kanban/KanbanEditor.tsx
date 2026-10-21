@@ -1,17 +1,18 @@
 import { useState, type KeyboardEvent } from "react";
-import { FaCrown, FaPlus } from "react-icons/fa6";
+import { FaPlus } from "react-icons/fa6";
 
 import { useConfirm } from "../../confirm";
 import { InlineInput } from "../../InlineInput";
 import { isDeleteShortcut } from "../../shortcuts";
 import { EditorFrame } from "../EditorFrame";
-import { AgentSelect } from "../group/AgentSelect";
 import { useGroupAgents } from "../group/useGroupAgents";
 import { useJsonDocument } from "../jsonDocument";
 import { useOpenOverlay } from "../navigation";
 import * as boards from "./board";
 import { CardDialog } from "./CardDialog";
 import { GroupPicker } from "./GroupPicker";
+import { MasterControls } from "./MasterControls";
+import { WorkdirPicker } from "./WorkdirPicker";
 import { KanbanColumn } from "./KanbanColumn";
 
 /** Редактор канбан-доски из файла .kanban. */
@@ -35,6 +36,8 @@ export function KanbanEditor({ path }: { path: string }) {
   };
 
   const deleteColumn = async (column: boards.Column) => {
+    // Обязательные столбцы («начало» и «готово») не удаляются.
+    if (!board || boards.columnRole(board, column.id)) return;
     const ok = await confirm({
       title: `Удалить столбец «${column.title}»?`,
       detail: column.cards.length
@@ -65,21 +68,23 @@ export function KanbanEditor({ path }: { path: string }) {
       actions={
         board && (
           <>
+            <WorkdirPicker
+              boardPath={path}
+              workdir={board.workdir}
+              onChange={(workdir) => change((b) => boards.updateSettings(b, { workdir }))}
+            />
             <GroupPicker
+              className="ml-2"
               boardPath={path}
               group={board.group}
               onChange={(group) => change((b) => boards.updateSettings(b, { group }))}
             />
-            <label className="ml-2 flex items-center gap-1.5" title="Мастер-агент: раздаёт задачи на доске и проверяет их выполнение">
-              <FaCrown size={13} className="text-amber-500" />
-              <AgentSelect
-                agents={agents}
-                value={board.orchestrator}
-                onChange={(orchestrator) => change((b) => boards.updateSettings(b, { orchestrator }))}
-                emptyLabel="Без мастер-агента"
-                className="h-6 max-w-56 px-1.5"
-              />
-            </label>
+            <MasterControls
+              boardPath={path}
+              board={board}
+              agents={agents}
+              onChange={(settings) => change((b) => boards.updateSettings(b, settings))}
+            />
           </>
         )
       }
@@ -89,9 +94,11 @@ export function KanbanEditor({ path }: { path: string }) {
           <KanbanColumn
             key={column.id}
             column={column}
+            role={boards.columnRole(board, column.id)}
             agents={agents}
             onAddCard={(title) => change((b) => boards.addCard(b, column.id, title))}
             onRemove={() => deleteColumn(column)}
+            onRename={(title) => change((b) => boards.renameColumn(b, column.id, title))}
             onOpenCard={setOpenCardId}
             onMoveCard={(cardId, beforeId) => change((b) => boards.moveCard(b, cardId, column.id, beforeId))}
             onDropColumn={(columnId, side) => {
@@ -105,6 +112,8 @@ export function KanbanEditor({ path }: { path: string }) {
 
       <CardDialog
         card={openCard}
+        boardPath={path}
+        stage={openCard && board ? boards.columnOf(board, openCard.id)?.title : undefined}
         agents={agents}
         onChange={(update) => openCard && change((b) => boards.updateCard(b, openCard.id, update))}
         onComment={(text) => openCard && change((b) => boards.addComment(b, openCard.id, text))}

@@ -4,10 +4,12 @@ import { extensionOf } from "../paths";
 import { GroupEditor } from "./group/GroupEditor";
 import { KanbanEditor } from "./kanban/KanbanEditor";
 import { MarkdownEditor } from "./markdown/MarkdownEditor";
+import { TextEditor } from "./TextEditor";
 
 /** Редактор для каждого расширения. Новый тип файла — одна строка. */
 const EDITORS: Record<string, ComponentType<{ path: string }>> = {
   ".md": MarkdownEditor,
+  ".txt": TextEditor,
   ".kanban": KanbanEditor,
   ".group": GroupEditor,
 };

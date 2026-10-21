@@ -6,7 +6,8 @@ import { FIELD } from "../../fieldStyle";
 import { Modal } from "../../Modal";
 import { LogsButton } from "../logs/LogsButton";
 import { AGENT_ICONS, DEFAULT_AGENT_ICON } from "./agentIcons";
-import { SUGGESTED_MODELS, type Agent, type NewAgent } from "./group";
+import type { Agent, NewAgent } from "./group";
+import { ModelPicker } from "./ModelPicker";
 
 /** Что открыто в окне: новый агент или существующий. */
 export type AgentDraft = { kind: "new" } | { kind: "edit"; agent: Agent };
@@ -79,18 +80,7 @@ function AgentForm({ draft, onSave, onOpenLogs, onCancel }: Omit<Props, "draft" 
 
         <label className="flex flex-col gap-1.5">
           <span className="text-[13px] text-muted">Модель</span>
-          <input
-            list="agent-models"
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            placeholder="Выберите или впишите"
-            className={FIELD}
-          />
-          <datalist id="agent-models">
-            {SUGGESTED_MODELS.map((m) => (
-              <option key={m} value={m} />
-            ))}
-          </datalist>
+          <ModelPicker value={model} onChange={setModel} />
         </label>
       </div>
 

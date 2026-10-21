@@ -19,9 +19,6 @@ export interface Group {
 
 export type NewAgent = Omit<Agent, "id">;
 
-/** Модели, которые предлагаются при вводе; можно вписать и любую другую. */
-export const SUGGESTED_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"];
-
 export function emptyGroup(): Group {
   return { version: 1, agents: [] };
 }

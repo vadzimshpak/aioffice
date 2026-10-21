@@ -5,22 +5,34 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
+
+use crate::voice;
 
 const SETTINGS_FILE: &str = "settings.json";
 const KEYRING_SERVICE: &str = "com.aioffice.app";
 const OPENROUTER_KEY: &str = "openrouter-api-key";
+/// Событие для всех окон: настройки сохранены, их стоит перечитать.
+const CHANGED_EVENT: &str = "settings-changed";
 
 /// Настройки, которые лежат в файле.
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 struct StoredSettings {
     language: String,
+    /// Сочетание клавиш, которое включает и выключает голосовой ввод, например `Ctrl+D`.
+    voice_hotkey: String,
+    /// id модели Whisper из каталога `voice::models`.
+    whisper_model: String,
 }
 
 impl Default for StoredSettings {
     fn default() -> Self {
-        Self { language: "ru".to_owned() }
+        Self {
+            language: "ru".to_owned(),
+            voice_hotkey: "Ctrl+D".to_owned(),
+            whisper_model: voice::DEFAULT_MODEL.to_owned(),
+        }
     }
 }
 
@@ -28,7 +40,8 @@ impl Default for StoredSettings {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
-    language: String,
+    #[serde(flatten)]
+    stored: StoredSettings,
     /// Пустая строка — ключа нет.
     openrouter_api_key: String,
 }
@@ -60,7 +73,8 @@ fn openrouter_entry() -> Result<keyring::Entry, String> {
     keyring::Entry::new(KEYRING_SERVICE, OPENROUTER_KEY).map_err(|e| e.to_string())
 }
 
-fn read_openrouter_key() -> Result<String, String> {
+/// Ключ OpenRouter из хранилища паролей; пустая строка — ключа нет.
+pub fn openrouter_key() -> Result<String, String> {
     match openrouter_entry()?.get_password() {
         Ok(key) => Ok(key),
         Err(keyring::Error::NoEntry) => Ok(String::new()),
@@ -78,16 +92,22 @@ fn write_openrouter_key(key: &str) -> Result<(), String> {
     }
 }
 
+/// Модель Whisper, выбранная в настройках.
+pub fn whisper_model(app: &AppHandle) -> Result<String, String> {
+    Ok(read_stored(&settings_path(app)?).whisper_model)
+}
+
 #[tauri::command]
 pub fn load_settings(app: AppHandle) -> Result<Settings, String> {
     let stored = read_stored(&settings_path(&app)?);
-    Ok(Settings { language: stored.language, openrouter_api_key: read_openrouter_key()? })
+    Ok(Settings { stored, openrouter_api_key: openrouter_key()? })
 }
 
 #[tauri::command]
 pub fn save_settings(app: AppHandle, settings: Settings) -> Result<(), String> {
-    write_stored(&settings_path(&app)?, &StoredSettings { language: settings.language })?;
-    write_openrouter_key(settings.openrouter_api_key.trim())
+    write_stored(&settings_path(&app)?, &settings.stored)?;
+    write_openrouter_key(settings.openrouter_api_key.trim())?;
+    app.emit(CHANGED_EVENT, ()).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -100,7 +120,7 @@ mod tests {
         let path = dir.path().join("nested").join(SETTINGS_FILE);
         assert_eq!(read_stored(&path), StoredSettings::default());
 
-        write_stored(&path, &StoredSettings { language: "ru".to_owned() }).unwrap();
+        write_stored(&path, &StoredSettings { language: "ru".to_owned(), ..Default::default() }).unwrap();
         assert_eq!(read_stored(&path).language, "ru");
         // Ключ API в файл не попадает.
         assert!(!fs::read_to_string(&path).unwrap().contains("openrouter"));

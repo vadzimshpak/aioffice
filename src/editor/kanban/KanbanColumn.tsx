@@ -5,7 +5,12 @@ import { cx } from "../../cx";
 import { InlineInput } from "../../InlineInput";
 import { AgentAvatar } from "../group/AgentAvatar";
 import type { Agent } from "../group/group";
-import type { Column } from "./board";
+import { AgentStatus } from "./AgentStatus";
+import { AgentUsageLabel } from "./AgentUsage";
+import type { Column, ColumnRole } from "./board";
+
+/** Лёгкая зелёная подсветка столбца «готово»: заметна в шапке и сходит на нет ниже. */
+const DONE_GLOW = "linear-gradient(to bottom, rgb(16 185 129 / 0.16), transparent 140px)";
 
 /** Типы данных при перетаскивании; значение — id карточки или столбца. */
 const CARD_DRAG_TYPE = "application/x-aioffice-card";
@@ -16,10 +21,13 @@ export type ColumnSide = "before" | "after";
 
 interface Props {
   column: Column;
+  /** Обязательный столбец: его нельзя удалить, а «готово» ещё и подсвечен. */
+  role: ColumnRole | undefined;
   /** Агенты группы доски: по ним на карточках показывается исполнитель. */
   agents: Agent[] | null;
   onAddCard: (title: string) => void;
   onRemove: () => void;
+  onRename: (title: string) => void;
   onOpenCard: (cardId: string) => void;
   /** Карточку бросили в этот столбец: в конец или перед карточкой `beforeId`. */
   onMoveCard: (cardId: string, beforeId?: string) => void;
@@ -27,13 +35,14 @@ interface Props {
   onDropColumn: (columnId: string, side: ColumnSide) => void;
 }
 
-export function KanbanColumn({ column, agents, onAddCard, onRemove, onOpenCard, onMoveCard, onDropColumn }: Props) {
+export function KanbanColumn({ column, role, agents, onAddCard, onRemove, onRename, onOpenCard, onMoveCard, onDropColumn }: Props) {
   const [adding, setAdding] = useState(false);
   // Новое поле после каждой добавленной карточки, чтобы можно было вводить подряд.
   const [inputKey, setInputKey] = useState(0);
   const [dropBefore, setDropBefore] = useState<string | null>(null); // id карточки или "end"
   const [columnSide, setColumnSide] = useState<ColumnSide | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [renaming, setRenaming] = useState(false);
 
   // Столбец над этим: встаёт слева или справа, смотря по какой половине курсор.
   const columnDragOver = (event: DragEvent<HTMLElement>) => {
@@ -66,6 +75,7 @@ export function KanbanColumn({ column, agents, onAddCard, onRemove, onOpenCard, 
   return (
     <section
       className={cx("relative flex max-h-full w-72 shrink-0 flex-col rounded-lg bg-panel", dragging && "opacity-40")}
+      style={role === "done" ? { backgroundImage: DONE_GLOW } : undefined}
       onDragOver={(event) =>
         event.dataTransfer.types.includes(COLUMN_DRAG_TYPE) ? columnDragOver(event) : dragOver(event, "end")
       }
@@ -79,8 +89,12 @@ export function KanbanColumn({ column, agents, onAddCard, onRemove, onOpenCard, 
         tabIndex={0}
         data-column-id={column.id}
         onClick={(event) => event.currentTarget.focus()}
-        draggable
-        title="Перетащите, чтобы переставить столбец"
+        // Пока название правят, шапку не тащим: иначе мышью не выделить текст.
+        draggable={!renaming}
+        title="Перетащите, чтобы переставить столбец; двойной клик или F2 — переименовать"
+        onKeyDown={(event) => {
+          if (event.key === "F2" && event.target === event.currentTarget) setRenaming(true);
+        }}
         onDragStart={(event) => {
           event.dataTransfer.setData(COLUMN_DRAG_TYPE, column.id);
           event.dataTransfer.effectAllowed = "move";
@@ -89,9 +103,24 @@ export function KanbanColumn({ column, agents, onAddCard, onRemove, onOpenCard, 
         onDragEnd={() => setDragging(false)}
         className="flex cursor-grab items-center gap-2 rounded-t-lg px-3 pt-2.5 pb-1.5 outline-none focus-visible:bg-accent/10 active:cursor-grabbing"
       >
-        <h3 className="truncate font-semibold">{column.title}</h3>
+        {renaming ? (
+          <InlineInput
+            defaultValue={column.title}
+            aria-label="Название столбца"
+            onFocus={(event) => event.currentTarget.select()}
+            className="h-7 flex-1 font-semibold"
+            onDone={(title) => {
+              setRenaming(false);
+              if (title !== null && title.trim() && title.trim() !== column.title) onRename(title);
+            }}
+          />
+        ) : (
+          <h3 className="truncate font-semibold" onDoubleClick={() => setRenaming(true)}>
+            {column.title}
+          </h3>
+        )}
         <span className="text-xs text-muted">{column.cards.length}</span>
-        <RemoveColumnButton onRemove={onRemove} />
+        {!role && <RemoveColumnButton onRemove={onRemove} />}
       </header>
 
       <ul className="flex min-h-2 flex-col gap-1.5 overflow-y-auto px-2 pb-1">
@@ -115,6 +144,8 @@ export function KanbanColumn({ column, agents, onAddCard, onRemove, onOpenCard, 
             >
               {card.title || <span className="text-muted">Без названия</span>}
               {card.assignee && <Assignee agent={agents?.find((agent) => agent.id === card.assignee)} />}
+              <AgentStatus state={card.agentState} className="mt-1.5" />
+              <AgentUsageLabel usage={card.agentUsage} className="mt-1" />
             </button>
           </li>
         ))}

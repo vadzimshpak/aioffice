@@ -7,6 +7,7 @@ import {
   FaFolder,
   FaFolderOpen,
   FaFolderPlus,
+  FaDiagramProject,
   FaGear,
 } from "react-icons/fa6";
 
@@ -32,10 +33,12 @@ interface ExplorerProps {
   onMoved: (from: string, to: string) => void;
   /** Файл или папка удалены — открытый файл мог пропасть. */
   onDeleted: (path: string) => void;
+  /** Открыть визуализацию офиса. */
+  onOpenVisualization: () => void;
 }
 
 /** Панель Explorer: файлы и папки проекта. */
-export function Explorer({ onOpenFile, onMoved, onDeleted }: ExplorerProps) {
+export function Explorer({ onOpenFile, onMoved, onDeleted, onOpenVisualization }: ExplorerProps) {
   const tree = useFileTree({ onMoved, onDeleted });
   const confirm = useConfirm();
   const [project, setProject] = useState("Проект");
@@ -73,6 +76,7 @@ export function Explorer({ onOpenFile, onMoved, onDeleted }: ExplorerProps) {
         </span>
         <IconButton icon={FaFileCirclePlus} title="Новый файл" onClick={() => setChoosingTemplate(true)} />
         <IconButton icon={FaFolderPlus} title="Новая папка" onClick={() => tree.startCreating(true)} />
+        <IconButton icon={FaDiagramProject} title="Визуализация" onClick={onOpenVisualization} />
         <IconButton icon={FaGear} title="Настройки" onClick={() => setSettingsOpen(true)} />
       </header>
 

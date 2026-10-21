@@ -1,14 +1,16 @@
 import { useEffect, useState, type ComponentType } from "react";
 import type { IconType } from "react-icons";
-import { FaEye, FaEyeSlash, FaPlug, FaSliders } from "react-icons/fa6";
+import { FaEye, FaEyeSlash, FaMicrophone, FaPlug, FaSliders } from "react-icons/fa6";
 
 import { api, type Settings } from "../../api";
 import { Button } from "../../Button";
 import { cx } from "../../cx";
+import { ExternalLink } from "../../ExternalLink";
 import { FIELD } from "../../fieldStyle";
 import { Modal } from "../../Modal";
+import { VoiceSection } from "./VoiceSection";
 
-interface SectionProps {
+export interface SectionProps {
   settings: Settings;
   onChange: (change: Partial<Settings>) => void;
 }
@@ -17,6 +19,7 @@ interface SectionProps {
 const SECTIONS: { id: string; title: string; icon: IconType; component: ComponentType<SectionProps> }[] = [
   { id: "general", title: "Основные", icon: FaSliders, component: GeneralSection },
   { id: "connections", title: "Подключения", icon: FaPlug, component: ConnectionsSection },
+  { id: "voice", title: "Голосовой ввод", icon: FaMicrophone, component: VoiceSection },
 ];
 
 /** Окно настроек приложения: меню разделов слева, настройки раздела справа. */
@@ -126,6 +129,9 @@ function ConnectionsSection({ settings, onChange }: SectionProps) {
           </Button>
         </div>
       </label>
+      <ExternalLink href="https://openrouter.ai/settings/keys" className="self-start text-xs">
+        Получить ключ на openrouter.ai
+      </ExternalLink>
       <p className="text-xs text-muted">
         Ключ создаётся на openrouter.ai в разделе Keys. Он хранится в Связке ключей системы, а не в файлах проекта.
         Чтобы удалить ключ, очистите поле и сохраните.

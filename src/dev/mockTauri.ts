@@ -1,6 +1,7 @@
 // Подделка Rust-части для просмотра интерфейса в браузере (только при разработке).
 // Хранит маленький проект в памяти и отвечает на те же команды, что и приложение.
 
+import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
 
 import type { Entry } from "../api";
@@ -11,13 +12,23 @@ const recent = [project, "/Users/demo/Документы/Отчёт за ква�
 
 // Папка -> имена внутри; у папок в конце «/».
 const tree: Record<string, string[]> = {
-  "": ["docs/", "src/", "README.md", "Команда.group", "Спринт.kanban"],
+  "": ["docs/", "src/", "README.md", "Заметки.txt", "Команда.group", "Спринт.kanban"],
   docs: ["plan.md"],
   src: ["main.rs", "ui/"],
   "src/ui": ["window.rs"],
 };
 
-let settings = { language: "ru", openrouterApiKey: "" };
+let settings = { language: "ru", openrouterApiKey: "", voiceHotkey: "Ctrl+D", whisperModel: "tiny" };
+
+let levelTimer: ReturnType<typeof setInterval> | undefined;
+
+const voiceModels = [
+  { id: "tiny", title: "Tiny — быстрая, для простых фраз", sizeMb: 75, downloaded: true },
+  { id: "base", title: "Base — быстрая, точнее Tiny", sizeMb: 142, downloaded: false },
+  { id: "small", title: "Small — заметно точнее, медленнее", sizeMb: 466, downloaded: false },
+  { id: "medium", title: "Medium — высокая точность, медленная", sizeMb: 1500, downloaded: false },
+  { id: "large-v3-turbo", title: "Large v3 Turbo — самая точная", sizeMb: 1600, downloaded: false },
+];
 
 // Путь файла -> его текст.
 let contents: Record<string, string> = {
@@ -41,12 +52,16 @@ let contents: Record<string, string> = {
     "```",
   ].join("\n"),
   "docs/plan.md": "# План\n\n1. Редактор Markdown\n2. Канбан\n",
+  "Заметки.txt": "Купить молоко.\nПозвонить дизайнеру.\n",
 "Спринт.kanban": JSON.stringify({
     version: 1,
     group: "Команда.group",
+    orchestrator: "a1",
+    budget: 5,
     columns: [
-      { id: "c1", title: "TODO", cards: [{ id: "k2", title: "Написать тексты", description: "", comments: [] }] },
+      { id: "c1", title: "TODO", role: "todo", cards: [{ id: "k2", title: "Написать тексты", description: "", comments: [] }] },
       { id: "c2", title: "В прогрессе", cards: [{ id: "k1", title: "Сверстать макет", description: "", comments: [], assignee: "a1" }] },
+      { id: "c3", title: "Готово", role: "done", cards: [{ id: "k3", title: "Собрать бриф", description: "", comments: [] }] },
     ],
   }),
   ".aioffice/logs/a1.jsonl": [
@@ -110,6 +125,35 @@ function remove(path: string) {
   for (const key of Object.keys(contents)) if (isInside(key, path)) delete contents[key];
 }
 
+/** Меняет статус агента на карточке доски и, если нужно, переносит её в последний столбец. */
+function setAgent(board: string, cardId: string, state: string, finish = false) {
+  const data = JSON.parse(contents[board]);
+  const columns: { cards: { id: string; agentState?: string }[] }[] = data.columns;
+  const from = columns.find((c) => c.cards.some((card) => card.id === cardId));
+  const card = from?.cards.find((c) => c.id === cardId);
+  if (!from || !card) return;
+  card.agentState = state;
+  // Каждый шаг агента что-то стоит.
+  const usage = (card as { agentUsage?: { tokens: number; cost: number } }).agentUsage ?? { tokens: 0, cost: 0 };
+  (card as { agentUsage?: unknown }).agentUsage = { tokens: usage.tokens + 1842, cost: usage.cost + 0.0123 };
+  if (finish) {
+    from.cards = from.cards.filter((c) => c !== card);
+    columns.at(-1)!.cards.push(card);
+  }
+  contents[board] = JSON.stringify(data, null, 2);
+  void emit("fs-changed");
+}
+
+/** Статус обхода мастера на доске; каждый обход что-то стоит. */
+function setMaster(board: string, state: string) {
+  const data = JSON.parse(contents[board]);
+  data.masterState = state;
+  const usage = data.masterUsage ?? { tokens: 0, cost: 0 };
+  data.masterUsage = { tokens: usage.tokens + 950, cost: usage.cost + 0.004 };
+  contents[board] = JSON.stringify(data, null, 2);
+  void emit("fs-changed");
+}
+
 mockIPC((cmd, args) => {
   const a = args as Record<string, string & boolean>;
   switch (cmd) {
@@ -136,11 +180,41 @@ mockIPC((cmd, args) => {
       return settings;
     case "save_settings":
       settings = (args as { settings: typeof settings }).settings;
+      void emit("settings-changed");
+      return;
+    case "voice_models":
+      return voiceModels;
+    case "download_voice_model":
+      return new Promise<void>((done) =>
+        setTimeout(() => {
+          voiceModels.find((m) => m.id === a.id)!.downloaded = true;
+          done();
+        }, 1500),
+      );
+    case "start_recording":
+      // Похоже на речь: громкость то растёт, то падает.
+      levelTimer = setInterval(() => void emit("voice-level", Math.abs(Math.sin(Date.now() / 300)) * 0.15 * Math.random()), 33);
+      return;
+    case "stop_recording":
+      clearInterval(levelTimer);
+      return new Promise((done) => setTimeout(() => done("Пример распознанной речи."), 800));
+    case "stop_agent":
+      setAgent(a.board, a.cardId, "error");
+      return;
+    case "run_master":
+      setMaster(a.board, "running");
+      setTimeout(() => setMaster(a.board, "done"), 2500);
+      return;
+    case "stop_master":
+      setMaster(a.board, "error");
       return;
     case "create_project":
     case "open_project":
     case "open_recent":
       console.info(`[mock] ${cmd}: здесь откроется окно редактора`, args);
+      return;
+    case "plugin:opener|open_url":
+      window.open(a.url, "_blank", "noopener");
       return;
   }
 }, { shouldMockEvents: true });

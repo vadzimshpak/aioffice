@@ -1,7 +1,7 @@
 // Иконки файлов по расширению. Новый тип файла — одна строка в FILE_ICONS.
 
 import type { IconType } from "react-icons";
-import { FaMarkdown, FaPeopleGroup, FaRegFile, FaTableColumns } from "react-icons/fa6";
+import { FaMarkdown, FaPeopleGroup, FaRegFile, FaRegFileLines, FaTableColumns } from "react-icons/fa6";
 
 import { extensionOf } from "../paths";
 
@@ -16,6 +16,7 @@ const DEFAULT_ICON: FileIcon = { icon: FaRegFile, color: "text-muted" };
 /** Ключ — расширение с точкой в нижнем регистре. */
 const FILE_ICONS: Record<string, FileIcon> = {
   ".md": { icon: FaMarkdown, color: "text-sky-600 dark:text-sky-400" },
+  ".txt": { icon: FaRegFileLines, color: "text-slate-500 dark:text-slate-300" },
   ".kanban": { icon: FaTableColumns, color: "text-violet-600 dark:text-violet-400" },
   ".group": { icon: FaPeopleGroup, color: "text-emerald-600 dark:text-emerald-400" },
 };

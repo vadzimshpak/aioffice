@@ -6,6 +6,7 @@ import { Explorer } from "./Explorer";
 import { LogsView } from "./logs/LogsView";
 import { OverlayContext, type Overlay } from "./navigation";
 import { VisualizationView } from "./visualization/VisualizationView";
+import { VoiceIndicator } from "./voice/VoiceIndicator";
 import { Workspace } from "./Workspace";
 
 export function Editor() {
@@ -26,7 +27,12 @@ export function Editor() {
   return (
     <PanelLayout>
       <Panel className="w-65 shrink-0">
-        <Explorer onOpenFile={openFileFromExplorer} onMoved={followMove} onDeleted={closeIfDeleted} />
+        <Explorer
+          onOpenFile={openFileFromExplorer}
+          onMoved={followMove}
+          onDeleted={closeIfDeleted}
+          onOpenVisualization={() => setOverlay({ kind: "visualization" })}
+        />
       </Panel>
       <Panel className="min-w-0 flex-1 bg-bg">
         <OverlayContext.Provider value={setOverlay}>
@@ -39,6 +45,7 @@ export function Editor() {
           )}
         </OverlayContext.Provider>
       </Panel>
+      <VoiceIndicator />
     </PanelLayout>
   );
 }

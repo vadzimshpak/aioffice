@@ -17,7 +17,7 @@ use tauri::{AppHandle, Emitter, State, WebviewWindow};
 use crate::OpenProjects;
 
 /// Файлы, которые Explorer не показывает.
-const HIDDEN: &[&str] = &[".git", ".DS_Store", ".aioffice"];
+pub(crate) const HIDDEN: &[&str] = &[".git", ".DS_Store", ".aioffice"];
 
 /// Событие для окна редактора: что-то в папке проекта изменилось.
 const FS_CHANGED: &str = "fs-changed";
@@ -32,16 +32,16 @@ pub struct Entry {
 
 // --- Работа с диском ---
 
-/// Проверяет имя одного файла или папки.
+/// Проверяет имя одного файла или папки. Двоеточие запрещено: на Windows `C:` увело бы путь на другой диск.
 fn check_name(name: &str) -> Result<(), String> {
-    if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\']) {
+    if name.is_empty() || name == "." || name == ".." || name.contains(['/', '\\', ':']) {
         return Err(format!("недопустимое имя: «{name}»"));
     }
     Ok(())
 }
 
 /// Превращает путь от корня проекта в абсолютный, не выпуская его за корень.
-fn resolve(root: &Path, rel: &str) -> Result<PathBuf, String> {
+pub(crate) fn resolve(root: &Path, rel: &str) -> Result<PathBuf, String> {
     let mut path = root.to_path_buf();
     for part in rel.split('/').filter(|p| !p.is_empty()) {
         check_name(part)?;
@@ -139,7 +139,11 @@ fn removable(root: &Path, path: &str) -> Result<PathBuf, String> {
 
 /// Перемещает файл или папку в Корзину системы: удаление можно отменить оттуда.
 fn move_to_trash(root: &Path, path: &str) -> Result<(), String> {
-    let target = removable(root, path)?;
+    trash_path(removable(root, path)?)
+}
+
+/// Перемещает в Корзину уже проверенный абсолютный путь.
+pub(crate) fn trash_path(target: PathBuf) -> Result<(), String> {
     #[allow(unused_mut)]
     let mut trash = trash::TrashContext::default();
     // Через Finder macOS просит доступ к автоматизации и проигрывает звук; системный вызов — нет.
@@ -199,7 +203,7 @@ impl Watchers {
 
 // --- Команды ---
 
-fn project_root(window: &WebviewWindow, projects: &OpenProjects) -> Result<PathBuf, String> {
+pub(crate) fn project_root(window: &WebviewWindow, projects: &OpenProjects) -> Result<PathBuf, String> {
     projects
         .project_of(window.label())
         .map(PathBuf::from)

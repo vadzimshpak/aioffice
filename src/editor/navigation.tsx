@@ -14,8 +14,8 @@ export type LogsTarget =
       agents: Agent[];
     };
 
-/** Экран, который открывается вместо файла: логи или визуализация офиса (группы агентов). */
-export type Overlay = LogsTarget | { kind: "visualization"; group: string };
+/** Экран, который открывается вместо файла: логи или визуализация офиса (всего проекта или одной группы агентов). */
+export type Overlay = LogsTarget | { kind: "visualization"; group?: string };
 
 /** Переход из редактора файла к другому экрану; «Назад» возвращает к файлу. */
 export const OverlayContext = createContext<(overlay: Overlay) => void>(() => {});

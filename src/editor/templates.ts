@@ -16,6 +16,7 @@ export interface FileTemplate {
 export const FILE_TEMPLATES: FileTemplate[] = [
   { title: "Пустой файл", description: "Любое имя и расширение", extension: "" },
   { title: "Markdown", description: "Текстовый документ, .md", extension: ".md" },
+  { title: "Текст", description: "Обычный текст без разметки, .txt", extension: ".txt" },
   {
     title: "Kanban",
     description: "Канбан-доска, .kanban",
